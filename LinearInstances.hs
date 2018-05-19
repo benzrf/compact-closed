@@ -14,6 +14,7 @@ import Linear.Matrix
 import Linear.Vector
 import GHC.TypeLits
 import Data.Proxy
+import Data.Kind
 import Data.Vector
 import Data.Constraint
 import Control.Applicative
@@ -63,7 +64,7 @@ otimes :: (Dim v, Dim w, Num k) => V v k -> V w k -> V (TensorSpace v w) k
 otimes v w = squash (outer v w)
 
 type K = Double
-data FinVect :: FinSpace -> FinSpace -> * where
+data FinVect :: FinSpace -> FinSpace -> Type where
   FinVect :: (Dim v, Dim w) => V w (V v K) -> FinVect v w
 
 deriving instance (Dim v, Dim w) => Show (FinVect v w)
