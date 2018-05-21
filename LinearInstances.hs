@@ -158,7 +158,7 @@ otimes v w = TensorSpaceEl (outer w v)
 type K = Double
 data FinVect :: FinSpace -> FinSpace -> Type where
   FinVect :: (KnownFS v, KnownFS w) => FinEl w (FinEl v K) -> FinVect v w
-type EndoFV v = FinVect v v
+type FVEndo v = FinVect v v
 
 deriving instance Eq (FinVect v w)
 deriving instance Show (FinVect v w)
@@ -221,5 +221,6 @@ instance Symmetric FinVect KnownFS TensorSpace (Free 1)
 instance Distr1 KnownFS DualSpace where distr1 = Sub Dict
 instance CompactClosed FinVect KnownFS TensorSpace (Free 1) DualSpace where
   ev = FinVect . FreeEl . pure . TensorSpaceEl . fmap DualSpaceEl $ identity
-  coev = FinVect . fmap (FreeEl . pure) . TensorSpaceEl . DualSpaceEl $ identity
+  coev = FinVect . fmap (FreeEl . pure) .
+    TensorSpaceEl . DualSpaceEl $ identity
 
