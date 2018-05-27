@@ -3,7 +3,7 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
-module Classes where
+module CompactClosed.Classes where
 
 import Data.Constraint
 

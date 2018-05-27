@@ -7,9 +7,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
-module Free where
+module CompactClosed.Free where
 
-import Classes
+import CompactClosed.Classes
 import Data.Constraint
 import Data.Kind
 import Data.Proxy

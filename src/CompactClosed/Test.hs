@@ -1,11 +1,11 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeOperators #-}
-module Test where
+module CompactClosed.Test where
 
-import AIN
-import Classes
-import LinearInstancesSparse
+import CompactClosed.AIN
+import CompactClosed.Classes
+import CompactClosed.LinearInstancesSparse
 
 type GE w = FinVect (Free 1) w
 

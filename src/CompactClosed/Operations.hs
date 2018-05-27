@@ -4,10 +4,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
-module Operations where
+module CompactClosed.Operations where
 
-import Classes
-import InstanceWrangler
+import CompactClosed.Classes
+import CompactClosed.InstanceWrangler
 
 type InternalHom cat p d a b = d a `p` b
 

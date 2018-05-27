@@ -10,9 +10,9 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
-module LinearInstancesSparse where
+module CompactClosed.LinearInstancesSparse where
 
-import Classes
+import CompactClosed.Classes
 import Data.Constraint
 import Data.Finite
 import Data.Functor.Apply

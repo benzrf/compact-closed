@@ -2,9 +2,10 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
-module AIN where
+module CompactClosed.AIN where
 
-import Classes
+import CompactClosed.Classes
+import CompactClosed.Operations
 import Control.Applicative
 import Control.Monad.State
 import Data.Char
@@ -14,7 +15,6 @@ import Data.Map (Map)
 import Data.Semigroup
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
-import Operations
 import qualified Data.List.NonEmpty as N
 import qualified Data.Map as M
 

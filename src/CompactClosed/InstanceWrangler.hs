@@ -1,8 +1,9 @@
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators #-}
-module InstanceWrangler where
+module CompactClosed.InstanceWrangler where
 
-import Classes
+import CompactClosed.Classes
 import Control.Monad
 import Data.Constraint
 import Language.Haskell.TH
