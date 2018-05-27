@@ -22,7 +22,6 @@ import Linear.Vector
 import GHC.TypeLits
 import Data.Proxy
 import Data.Kind
--- import Data.Vector
 import Data.Kind
 import Data.Maybe
 import Data.Monoid
@@ -152,6 +151,9 @@ instance KnownFS v => Distributive (FinEl v) where
 
 free :: KnownNat n => [a] -> FinEl (Free n) a
 free = FinEl . M.fromAscList . zip [minBound..]
+
+dual :: FinEl v a -> FinEl (DualSpace v) a
+dual = FinEl . M.mapKeys DualSpaceIx . getCoords
 
 otimes :: (KnownFS v, KnownFS w, Num k) =>
   FinEl v k -> FinEl w k -> FinEl (TensorSpace v w) k

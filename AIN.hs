@@ -1,5 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 module AIN where
 
 import IPPrint.Colored
@@ -9,11 +11,15 @@ import Control.Applicative
 import Control.Monad
 import Control.Monad.State
 import Data.Map (Map)
+import Data.Semigroup
 import qualified Data.Map as M
 import Data.List
+import Data.List.NonEmpty (NonEmpty(..), (<|))
+import qualified Data.List.NonEmpty as N
 import Data.Char
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
+import Language.Haskell.TH.Quote
 
 data Variance = Lower | Upper deriving (Show, Eq, Ord)
 type Index = (Char, Variance)
@@ -52,6 +58,7 @@ parseTensors = many (ws >> parseTensor)
 
 parseDef :: P AINDef
 parseDef = do
+  ws
   out <- parseTensor
   ws
   pop >>= guard . (== Just '=')
@@ -63,51 +70,82 @@ parseDef = do
 
 -- main logic
 
-data TensorFactor = ContractionIx Index | Scalar | Output Int
+data TensorFactor = Scalar | ContractionIx Index | Output Int
   deriving (Show, Eq, Ord)
-data TensorSig = Factor TensorFactor | Prod TensorSig TensorSig
-  deriving Show
-type TensorExp = (ExpQ, TensorSig)
+type TensorExp = (ExpQ, NonEmpty TensorFactor)
 
 -- TODO maybe verify matching variances for better error messages
 tensorExp :: AINTensor -> AINTensor -> TensorExp
 tensorExp (_, outIxes) (nm, ixes) = (dyn nm, sig ixes)
-  where sig [] = Factor Scalar
-        sig [i] = factor i
-        sig (i:is) = factor i `Prod` sig is
-        factor i@(c, _) = Factor $
+  where sig []     = pure Scalar
+        sig (i:is) = fmap factor (i:|is)
+        factor i@(c, _) =
           case findIndex (\(c', _) -> c' == c) outIxes of
             Nothing -> ContractionIx i
             Just n -> Output n
 
-contractionExp :: AINTensor -> [AINTensor] -> TensorExp
-contractionExp out [] = ([| id |], Factor Scalar)
-contractionExp out [t] = tensorExp out t
-contractionExp out (t:ts) = ([| $e `bimap` $e' |], sig `Prod` sig')
-  where (e, sig) = tensorExp out t
-        (e', sig') = contractionExp out ts
+-- TODO: newtypes or datas instead of all these tuples; newtypes to distinguish
+-- what kind of thing an ExpQ is supposed to be holding.
+
+infixr 5 :<|
+pattern h:<|t <- h:|(N.nonEmpty -> Just t)
+pattern Single x = x:|[]
+
+reassoc :: NonEmpty TensorFactor -> ExpQ
+reassoc (Single _) = [| id' |]
+reassoc (_:<|t) = [| assoc >>> rmap $(reassoc t) |]
+
+bubble1 :: NonEmpty TensorFactor -> (NonEmpty TensorFactor, ExpQ)
+bubble1 (a:<|b:<|sig) | a > b = (b <| a <| sig', e')
+  where (sig', e) = bubble1 sig
+        e' = [| unassoc >>> bimap braid $e >>> assoc |]
+bubble1 (a:|[b]) | a > b = (b:|[a], [| braid |])
+bubble1 (a:<|sig) = (a <| sig', e')
+  where (sig', e) = bubble1 sig
+        e' = [| rmap $e |]
+bubble1 sig@(Single _) = (sig, [| id' |])
+
+bubble :: NonEmpty TensorFactor -> ExpQ -> (NonEmpty TensorFactor, ExpQ)
+bubble sig e
+  | sig' == sig = (sig, e)
+  | otherwise = bubble sig' [| $e >>> $e' |]
+  where (sig', e') = bubble1 sig
+
+-- Only feed this a sorted signature if you want everything to work right!
+-- TODO there's probably a way to make the sorting-based invariants more
+-- manifest
+collapse :: NonEmpty TensorFactor -> ExpQ -> (NonEmpty TensorFactor, ExpQ)
+collapse (Scalar:<|sig) e = collapse sig [| $e >>> lunit |]
+collapse (ContractionIx (c, Lower):<|ContractionIx (c', Upper):<|sig) e
+  | c' == c = collapse (Scalar <| sig) [| $e >>> unassoc >>> lmap ev |]
+collapse sig e = (sig, e)
 
 -- TODO validation
+infixr `contract`
 contract :: TensorExp -> TensorExp -> TensorExp
-contract (eS, sigS) (eT, sigT) = prod
-  where prod = ([| unrunit >>> bimap $eS $eT |], sigS `Prod` sigT)
+contract (eS, sigS) (eT, sigT) = (contractedE, contractedSig)
+  where prodE = [| unrunit >>> bimap $eS $eT >>> $(reassoc sigS) |]
+        (sortedSig, sortedE) = bubble (sigS <> sigT) prodE
+        (contractedSig, contractedE) = collapse sortedSig sortedE
+
+-- contractAll :: [TensorExp
 
 
-testAIN = "tens_x^a = s v_x^b w^ba"
-test = s `contract` (v `contract` w)
-  where Just (out, ain) = evalStateT parseDef testAIN
-        exps = map (tensorExp out) ain
-        [s, v, w] = exps
+-- main frontend
+-- TODO proper errors
+tensorQuoteDec :: String -> DecsQ
+tensorQuoteDec def = [d| $(varP (mkName nm)) = $e |]
+  where Just (out@(nm, _), ain) = evalStateT parseDef def
+        texps = map (tensorExp out) ain
+        (e, sig) | null texps = ([| id' |], pure Scalar)
+                 | otherwise = foldr1 contract texps
 
-ppTensorExp (e, sig) = runQ $ do
-  e' <- e
-  runIO (print (pprint e') >> cpprint sig)
-
-{-
-goalSig :: Tensor -> TensorSig -> Maybe TensorSig
-goalSig (_, ixes) sig = forM
-
-performContractions :: TensorExp -> TensorExp
-performContractions = undefined
--}
+tensor :: QuasiQuoter
+tensor = QuasiQuoter {
+    quoteExp  = error msg,
+    quotePat  = error msg,
+    quoteType = error msg,
+    quoteDec  = tensorQuoteDec
+  }
+  where msg = "The tensor quasiquoter only supports declarations"
 
