@@ -1,19 +1,15 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeInType #-}
+{-# LANGUAGE TypeOperators #-}
 module Operations where
 
 import Classes
 import InstanceWrangler
-import Data.Constraint
-import Language.Haskell.TH
 
 type InternalHom cat p d a b = d a `p` b
-
 
 toDoubleDual' =
   unrunit >>> rmap coev >>> unassoc >>> lmap (braid >>> ev) >>> lunit

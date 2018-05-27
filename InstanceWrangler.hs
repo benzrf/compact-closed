@@ -6,7 +6,6 @@ import Classes
 import Control.Monad
 import Data.Constraint
 import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
 
 wrangle :: Name -> ExpQ
 wrangle nm = do

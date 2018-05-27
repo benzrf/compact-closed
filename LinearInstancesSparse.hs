@@ -1,41 +1,30 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleContexts #-}
 module LinearInstancesSparse where
 
 import Classes
-import Linear.V1
-import Linear.Matrix
-import Linear.Vector
-import GHC.TypeLits
-import Data.Proxy
+import Data.Constraint
+import Data.Finite
+import Data.Functor.Apply
 import Data.Kind
-import Data.Kind
+import Data.Map (Map)
 import Data.Maybe
 import Data.Monoid
-import Data.Typeable
-import Data.Constraint
-import Control.Applicative
-import Data.Functor.Bind
-import Data.Foldable
-import Data.Map (Map)
+import Data.Proxy
+import GHC.TypeLits
+import Linear.Matrix
+import Linear.Vector
 import qualified Data.Map as M
-import Data.Finite
-import Data.Distributive
-import Control.Monad
-import IPPrint
 
 data FinSpace = Free Nat | TensorSpace FinSpace FinSpace | DualSpace FinSpace
 
@@ -117,37 +106,6 @@ deriving instance Additive (FinEl v)
 identity' :: (Num k, KnownFS v) => FinEl v (FinEl v k)
 identity' = FinEl (M.fromAscList entries)
   where entries = map (\i -> (i, FinEl (M.singleton i 1))) enumerate
-{-
-identity' :: (Num k, KnownFS v) => FinEl (TensorSpace v v) k
-identity' = FinEl (M.fromAscList entries)
-  where entries = zip diag (repeat 1)
-        diag = zipWith TensorSpaceIx all all
-        all = [minBound..maxBound]
--}
-
-{-
-instance Bind (FinEl v) where
-  FreeEl vec >>- f =
-    let f' a = case f a of FreeEl vec' -> vec'
-    in  FreeEl (vec >>- f')
-  TensorSpaceEl m >>- f = TensorSpaceEl . badFromVector . imap row $ m
-    where row i = undefined
-  DualSpaceEl d >>- f =
-    let f' a = case f a of DualSpaceEl d' -> d'
-    in  DualSpaceEl (d >>- f')
-
-instance KnownFS v => Monad (FinEl v) where
-  return = pure
-  (>>=) = (>>-)
-instance KnownFS v => Distributive (FinEl v) where
-  distribute = go (reflectFS @v Proxy)
-    where go :: Functor f =>
-            FinSpaceV v' -> f (FinEl v' a) -> FinEl v' (f a)
-          go FreeV = FreeEl . distribute . fmap getFreeEl
-          go (TensorSpaceV v w) = TensorSpaceEl . fmap (go v) . go w .
-            fmap getTensorSpaceEl
-          go (DualSpaceV v) = DualSpaceEl . go v .  fmap getDualSpaceEl
--}
 
 free :: KnownNat n => [a] -> FinEl (Free n) a
 free = FinEl . M.fromAscList . zip [minBound..]

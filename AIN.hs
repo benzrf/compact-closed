@@ -1,25 +1,22 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 module AIN where
 
-import IPPrint.Colored
 import Classes
-import Operations
 import Control.Applicative
-import Control.Monad
 import Control.Monad.State
-import Data.Map (Map)
-import Data.Semigroup
-import qualified Data.Map as M
+import Data.Char
 import Data.List
 import Data.List.NonEmpty (NonEmpty(..), (<|))
-import qualified Data.List.NonEmpty as N
-import Data.Char
+import Data.Map (Map)
+import Data.Semigroup
 import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
 import Language.Haskell.TH.Quote
+import Operations
+import qualified Data.List.NonEmpty as N
+import qualified Data.Map as M
 
 data Variance = Lower | Upper deriving (Show, Eq, Ord)
 type Index = (Char, Variance)
@@ -127,9 +124,6 @@ contract (eS, sigS) (eT, sigT) = (contractedE, contractedSig)
   where prodE = [| unrunit >>> bimap $eS $eT >>> $(reassoc sigS) |]
         (sortedSig, sortedE) = bubble (sigS <> sigT) prodE
         (contractedSig, contractedE) = collapse sortedSig sortedE
-
--- contractAll :: [TensorExp
-
 
 -- main frontend
 -- TODO proper errors
