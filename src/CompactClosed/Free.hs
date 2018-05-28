@@ -36,6 +36,8 @@ instance O x => O (D x) where
   reflectFO _ = DV (reflectFO @x Proxy)
 
 data Free :: FreeObj -> FreeObj -> Type where
+  Labelled :: (O x, O y) => String -> Free x y
+
   Id :: (O x, O y) => Free x y
   (:>>>) :: Free x y -> Free y z -> Free x z
 
@@ -46,7 +48,6 @@ data Free :: FreeObj -> FreeObj -> Type where
 
   Lunit :: O x => (I `P` x) `Free` x
   Unlunit :: O x => x `Free` (I `P` x)
-
   Runit :: O x => (x `P` I) `Free` x
   Unrunit :: O x => x `Free` (x `P` I)
 
@@ -55,6 +56,7 @@ data Free :: FreeObj -> FreeObj -> Type where
 
   Ev :: O a => (D a `P` a) `Free` I
   Coev :: O a => I `Free` (a `P` D a)
+type FreeEndo x = Free x x
 
 deriving instance Show (Free x y)
 
