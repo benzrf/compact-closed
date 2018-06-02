@@ -6,7 +6,7 @@ module CompactClosed.AIN where
 
 import CompactClosed.Classes
 import CompactClosed.Operations
-import Control.Applicative
+import Control.Applicative hiding (many)
 import Control.Monad.State
 import Data.Char
 import Data.List
@@ -17,6 +17,7 @@ import Language.Haskell.TH
 import Language.Haskell.TH.Quote
 import qualified Data.List.NonEmpty as N
 import qualified Data.Map as M
+import Text.ParserCombinators.ReadP
 
 data Variance = Lower | Upper deriving (Show, Eq, Ord)
 type Index = (Char, Variance)
@@ -25,44 +26,30 @@ type AINDef = (AINTensor, [AINTensor])
 
 -- parsing
 
-pop :: MonadState [a] m => m (Maybe a)
-pop = state go
-  where go [] = (Nothing, [])
-        go (x:xs) = (Just x, xs)
-
-type P = StateT String Maybe
-
-ws :: P ()
-ws = void . state $ break (not . isSpace)
-
-parseTensor :: P AINTensor
+-- hmm... better be careful: index lists could easily be misparsed as tensor
+-- names if the code is altered the wrong way.
+parseTensor :: ReadP AINTensor
 parseTensor = do
-  nm <- state (break (\c -> isSpace c || c `elem` "_^"))
-  guard (not (null nm))
-  let step variance ixes = do
-        mc <- pop
-        case mc of
-          Nothing -> return ixes
-          Just c | isSpace c -> return ixes
-          Just '_' -> step Lower ixes
-          Just '^' -> step Upper ixes
-          Just c -> step variance ((c, variance):ixes)
-  ixes <- step Lower []
-  return (nm, reverse ixes)
+  nm <- munch1 isAlpha
+  ixGrps <- many $ do
+    varianceC <- satisfy (`elem` "_^")
+    let variance = case varianceC of '_' -> Lower; '^' -> Upper
+    ixes <- munch1 isAlpha
+    return $ map (\c -> (c, variance)) ixes
+  return (nm, concat ixGrps)
 
-parseTensors :: P [AINTensor]
-parseTensors = many (ws >> parseTensor)
+parseTensors :: ReadP [AINTensor]
+parseTensors = parseTensor `sepBy` skipSpaces
 
-parseDef :: P AINDef
+parseDef :: ReadP AINDef
 parseDef = do
-  ws
+  skipSpaces
   out <- parseTensor
-  ws
-  pop >>= guard . (== Just '=')
-  ws
+  skipSpaces
+  char '='
+  skipSpaces
   prod <- parseTensors
-  ws
-  pop >>= guard . (== Nothing)
+  skipSpaces
   return (out, prod)
 
 -- main logic
@@ -125,21 +112,32 @@ contract (eS, sigS) (eT, sigT) = (contractedE, contractedSig)
         (sortedSig, sortedE) = bubble (sigS <> sigT) prodE
         (contractedSig, contractedE) = collapse sortedSig sortedE
 
+compileAIN :: String -> Maybe (ExpQ, String)
+compileAIN def = case readP_to_S (parseDef <* eof) def of
+  [((out@(nm, _), ain), "")] -> (\e -> Just (e, nm)) $
+    let texps = map (tensorExp out) ain
+    in  if null texps then [| id' |]
+                      else fst (foldr1 contract texps)
+  _ -> Nothing
+
 -- main frontend
 -- TODO proper errors
+
+tensorQuoteExp :: String -> ExpQ
+tensorQuoteExp def = e
+  where Just (e, _) = compileAIN def
+
 tensorQuoteDec :: String -> DecsQ
 tensorQuoteDec def = [d| $(varP (mkName nm)) = $e |]
-  where Just (out@(nm, _), ain) = evalStateT parseDef def
-        texps = map (tensorExp out) ain
-        (e, sig) | null texps = ([| id' |], pure Scalar)
-                 | otherwise = foldr1 contract texps
+  where Just (e, nm) = compileAIN def
 
 tensor :: QuasiQuoter
 tensor = QuasiQuoter {
-    quoteExp  = error msg,
+    quoteExp  = tensorQuoteExp,
     quotePat  = error msg,
     quoteType = error msg,
     quoteDec  = tensorQuoteDec
   }
-  where msg = "The tensor quasiquoter only supports declarations"
+  where msg = "The tensor quasiquoter only supports " ++
+          "expressions and declarations"
 

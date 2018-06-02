@@ -4,16 +4,21 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 module CompactClosed.Free where
 
 import CompactClosed.Classes
+import Data.Char
 import Data.Constraint
 import Data.Kind
 import Data.Proxy
 import GHC.TypeLits
+import Language.Haskell.TH hiding (Type)
+import Language.Haskell.TH.Quote
+import Text.ParserCombinators.ReadP
 
 -- THIS DOES NOT ACTUALLY OBEY THE AXIOMS!!!
 
@@ -88,4 +93,33 @@ instance Distr1 O D where distr1 = Sub Dict
 instance CompactClosed Free O P I D where
   ev = Ev
   coev = Coev
+
+freeQuoteType :: String -> TypeQ
+freeQuoteType ty = [t| Free $dom $cod |]
+  where [((dom, cod), "")] = readP_to_S (parseTy <* eof) ty
+        parseTy = do
+          -- I suppose this is why you tokenize first
+          skipSpaces; dom <- parseObj
+          skipSpaces; string "->"; skipSpaces
+          cod <- parseObj; skipSpaces
+          return (dom, cod)
+        parseObj = chainr1 parseFactor $ do
+          skipSpaces; char '⊗'; skipSpaces
+          return (\a b -> [t| $a `P` $b |])
+        parseFactor = do
+          o <- parseNonDual; skipSpaces
+          ([t| D $o |] <$ char '*') <++ return o
+        parseNonDual =
+          (char '(' *> parseObj <* char ')') +++
+          ([t| I |] <$ char '1') +++
+          ((\nm -> [t| Named $(litT (strTyLit nm)) |]) <$> munch1 isAlpha)
+
+free :: QuasiQuoter
+free = QuasiQuoter {
+    quoteExp  = error msg,
+    quotePat  = error msg,
+    quoteType = freeQuoteType,
+    quoteDec  = error msg
+  }
+  where msg = "The free quasiquoter only supports types"
 

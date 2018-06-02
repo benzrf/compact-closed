@@ -20,7 +20,7 @@ let
       };
 
   haskellPackages = if compiler == "default"
-                       then pkgs.haskellPackages
+                       then pkgs.haskell.packages.ghc802
                        else pkgs.haskell.packages.${compiler};
 
   variant = if doBenchmark then pkgs.haskell.lib.doBenchmark else pkgs.lib.id;
